@@ -4,8 +4,7 @@ Relay is an AI-powered classroom continuity platform that helps teachers maintai
 
 Instead of requiring teachers to manually prepare substitute lesson plans, Relay combines existing classroom context with teacher instructions to produce a structured, substitute-ready **Relay Pack**.
 
-Relay is designed to work alongside Google Classroom rather than replace it. Google Classroom remains the source of truth for coursework, announcements, teaching materials, and student assignments, while Relay provides the operational context and classroom guidance that existing learning management systems do not capture.
-
+Relay is designed to work alongside Google Classroom rather than replace it. Google Classroom remains the source of truth for coursework, announcements, teaching materials, and student assignments, while Relay provides the operational context and classroom guidance for sub.
 Relay focuses on maintaining continuity across three phases of an absence:
 
 1. **Preparing the substitute** before class.

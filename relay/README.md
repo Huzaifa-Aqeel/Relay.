@@ -1,103 +1,116 @@
 # Relay
 
-AI-powered classroom continuity platform. Next.js (App Router) + Supabase + Prisma,
-Google Classroom via Composio, Groq for generation, Deepgram for voice handovers.
+**AI-powered classroom continuity for teachers **
 
-## 1. Set up Supabase
+> Class doesn't stop when you're out.
 
-1. Create a project at supabase.com.
-2. Run `supabase/schema.sql` in the SQL editor — creates all tables, the
-   auto-provisioning trigger, `updated_at` triggers, and RLS policies.
-3. Enable the **Google** provider under Authentication → Providers, using OAuth
-   credentials from Google Cloud Console. Add these scopes on the Google Cloud
-   consent screen (all read-only — Relay never writes to Classroom):
-   `classroom.courses.readonly`, `classroom.coursework.me.readonly`,
-   `classroom.courseworkmaterials.readonly`, `classroom.announcements.readonly`.
-4. Create a **private** storage bucket named `handover-audio`.
-5. Copy `.env.example` to `.env.local` and fill in:
-   - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Project Settings → API.
-   - `SUPABASE_SERVICE_ROLE_KEY` — same page (keep this server-only, never expose to the client).
-   - `DATABASE_URL` / `DIRECT_URL` — Project Settings → Database → Connection
-     string. Copy the **transaction pooler** string (port 6543) into
-     `DATABASE_URL` — that's what the app uses at runtime. Copy the **session
-     pooler** string (port 5432) into `DIRECT_URL` — Prisma needs this one
-     specifically for `prisma db push` / `prisma migrate`, since migrations
-     don't work over a transaction-mode pooler.
+## The problem
 
-## 2. Set up integrations
+When a teacher is unexpectedly absent, the substitute gets almost nothing useful: a
+sticky note, a half-remembered verbal handoff, or silence. Google Classroom organizes
+coursework, but it doesn't capture the operational knowledge a substitute actually
+needs — classroom routines, which students need extra support, what today's lesson
+was really about. That knowledge lives only in the teacher's head, and it's usually
+too late to get it out of there once they're already sick in bed.
 
-- **Composio**: sign up at composio.dev, create a Google Classroom auth config
-  (Toolkits → Google Classroom → Create Auth Config), then copy your project
-  API key and the Auth Config ID (`ac_...`) into `.env.local`. The app uses
-  `@composio/core` — the official SDK — rather than raw REST calls, since
-  Composio's REST endpoints have moved versions more than once.
-- **Groq**: get a key at console.groq.com.
-- **Deepgram**: get a key at console.deepgram.com.
+## What it does
 
-All three integration wrappers live in `src/lib/integrations/` — they're written
-against the real APIs already, so dropping in keys is enough to go live. No mocking
-layer to remove.
+- **"I'm Out Today"** — a teacher describes their intent in one sentence (or dictates
+  it by voice). Relay combines that with their real Google Classroom coursework and
+  their saved classroom profile to draft a substitute-ready pack.
+- **Grounded, not guessed** — Relay only generates practice questions or a review quiz or any material
+  when there's real, recently-posted coursework to base them on. If there isn't, it
+  says so plainly instead of inventing plausible-sounding content about the wrong
+  topic.
+- **Nothing is shareable until approved** — a teacher can regenerate as many times as
+  they want; nothing is saved to the database, and no substitute link exists, until
+  they explicitly click Approve.
+- **One secure link, no account** — the substitute opens today's activity, class
+  routines, and student support notes without signing up for anything.
+- **Voice handover → Reintegration Brief** — the substitute records a 60-second voice
+  summary at the end of class. Relay turns it into a structured brief (what got done,
+  who needs follow-up, what to know before tomorrow) so the teacher can catch up in
+  under a minute instead of replaying an audio file.
 
-## 3. Install & run
+## Demo
 
-```bash
-npm install
-npx prisma generate
-npm run dev
-```
+- **Live app:** _\[add your Vercel URL here]_
+- **Demo video:** _\[add your video link here]_
+- **Screenshots:** _\[add 2-3 screenshots — dashboard, a generated Relay Pack, the substitute view]_
 
-Visit `localhost:3000`, sign in with Google, connect Classroom from the dashboard,
-then set up a Classroom Profile for at least one class before trying "I'm Out Today".
+## ⚠️ Access note for judges
+
+This project uses real Google Classroom data via OAuth, and the Google Cloud
+consent screen is still in **Testing** mode (not yet through Google's app
+verification process — a multi-week process not practical to complete before this
+submission). In Testing mode, Google only allows sign-in from Google accounts
+explicitly added as test users.
+
+**If you'd like to sign in and try the live app yourself, email me your Google
+account address at _\[your email here]_ and I'll add you as a test user** — takes
+under a minute on my end. Alternatively, the demo video walks through the full
+flow end-to-end if you'd rather not wait on that.
+
+## Tech stack
+
+Next.js_14 (AppRouter) · Supabase (Auth + Postgres + Storage) · Prisma · Composio
+(Google Classroom) · Groq (LLM) · Deepgram (speech-to-text) · Tailwind
+
+## How it works
+
+Three single-purpose AI steps, matching how a human would actually do this task:
+
+1. **Context Builder** — gathers the teacher's instruction, saved classroom routines,
+   student support notes, and recently-posted Google Classroom coursework. No
+   generation happens here, just assembly.
+2. **Relay Pack Agent** — decides whether the teacher's instruction calls for
+   practice questions or a quiz, and if so, drafts them *from the actual coursework
+   fetched above*. If there's no coursework to ground them in, it skips generation
+   entirely rather than let an LLM guess. Everything the substitute sees under
+   "Today's Activity" is the teacher's own words — the AI never rewrites or
+   paraphrases the teacher's intent.
+3. **Handover Agent** — after class, turns the substitute's voice recording into a
+   structured four-part summary (lesson coverage, student watchlist, classroom
+   environment, tomorrow's handover).
+
+Substitute access is a bare secure token, not an account — `relay_packs.secure_token`
+is the only credential, and a pack is unreachable until its status is `approved`.
+
+## Challenges I ran into
+
+- **Avoiding confident-sounding wrong answers** — the first version let the LLM
+  generate practice questions even with zero real coursework behind them. They read
+  as perfectly reasonable questions about the right subject, on the wrong lesson.
+  Fixing this meant a hard rule: don't call the model at all if there's nothing to
+  ground it in, rather than trust a prompt instruction not to guess.
+- **Designing around "nothing persists until approved"** — reworking the generation
+  flow so a teacher can regenerate freely without ever writing an abandoned draft to
+  the database took a real architecture change, not just a UI tweak.
+
+## What's next
+- Wire up Composio's `connected_account.expired` webhook for instant reconnect
+  detection instead of catching it on the next failed call
+- Multi-day absence planning, not just single-day
+- Move past Google's unverified/testing OAuth mode for real public use
+- collabration with teachers for testing and review.
+
 
 ## Architecture notes
 
 - **Auth**: Supabase Google OAuth. A Postgres trigger (`on_auth_user_created`)
-  auto-creates the `teachers` row — the app never manually provisions a teacher.
-- **Data access**: Prisma connects directly to Postgres (bypasses RLS — RLS in
-  `schema.sql` is a defense-in-depth backstop if you ever query via the Supabase
-  client directly from a server component, which some routes do for the current
-  user's session).
-- **Substitute access**: no auth. `secure_token` on `relay_packs` is the sole
-  credential. Packs are only reachable once `status = 'approved'` — drafts return
-  404. See `src/app/substitute/[token]/page.tsx`.
-- **Google Classroom sync is automatic, not manual**: classes import exactly
-  once, right inside `src/app/api/classroom/callback/route.ts`, immediately
-  after OAuth completes. There's no "Sync classes" button — if you need to
-  re-pull classes, disconnect and reconnect.
-- **Sign-out disconnects Classroom too**: `src/app/auth/signout/route.ts`
-  deletes the teacher's Composio connected account before ending the Supabase
-  session, so classroom access never sits linked to a session the teacher has
-  left. Next sign-in starts from "not connected."
-- **Self-healing connection status**: if a Composio call fails because the
-  connected account was deleted/revoked (`ComposioConnectionInvalidError` in
-  `src/lib/integrations/composio.ts`), the relevant route flips
-  `google_connections.status` to `"error"`, which makes the dashboard show
-  "Reconnect" again. This only catches it on the *next* attempted call though
-  — it's reactive, not instant.
-- **For instant detection once deployed**: Composio auto-detects real token
-  revocation (the user revokes access in their own Google account settings)
-  and flips that connection to `EXPIRED`, firing a
-  `composio.connected_account.expired` webhook. This requires a public HTTPS
-  URL to receive it, so it's not usable in local dev — set it up after
-  deploying (Vercel gives you that public URL for free). See
-  https://docs.composio.dev/docs/authentication for the exact event name and
-  https://docs.composio.dev/docs/using-triggers for webhook subscription setup.
-  Note this only covers *revocation*; manually deleting a connected account
-  from the Composio dashboard is a direct action with no corresponding event —
-  the self-healing behavior above is what catches that case.
-- **AI pipeline** (`src/lib/ai/`): three single-purpose agents matching product.md
-  §7 — `context-builder.ts` (gather, no generation), `relay-pack-agent.ts` (drafts
-  the pack, incl. optional practice questions/quiz), `handover-agent.ts` (turns a
-  transcript into the 4-point structured summary). Generated instructional content
-  is never final until the teacher hits "Approve" in the AI Review step
-  (`PATCH /api/relay-packs/[id]` with `action: "approve"`).
-- **Design tokens** live in `tailwind.config.ts` (chalkboard green / relay amber)
-  and are applied via the `.card` / `.btn-primary` / `.chip` utility classes in
-  `globals.css` rather than scattered inline — change the palette in one place.
-
-## What's stubbed vs. real
-
-Everything is wired to real endpoints (Composio, Groq, Deepgram, Supabase Storage).
-Nothing needs to be swapped out — just add API keys. The one manual step outside
-this repo is registering the Google Cloud OAuth app and the Composio integration,
-since those require accounts only you can create.
+  auto-creates the `teachers` row.
+- **Data access**: Prisma connects directly to Postgres. RLS in `schema.sql` is a
+  defense-in-depth backstop for any direct Supabase-client queries.
+- **Substitute access**: no auth, `secure_token` is the sole credential. A pack is
+  only reachable once `status = 'approved'` — nothing is ever created in the
+  database as a "draft"; `POST /api/relay-packs` is the only route that ever writes
+  a row, and it only runs when the teacher clicks Approve.
+- **Google Classroom sync is automatic**: classes import once, immediately after
+  OAuth completes, inside `src/app/api/classroom/callback/route.ts`.
+- **Sign-out disconnects Classroom too**: `src/app/auth/signout/route.ts` deletes the
+  teacher's Composio connected account before ending the session.
+- **Self-healing connection status**: a failed Composio call (revoked/deleted
+  account) flips `google_connections.status` to `"error"`, surfacing "Reconnect" on
+  the dashboard on the next page load.
+- **Design tokens** live in `tailwind.config.ts`, applied via `.card` / `.btn-primary`
+  / `.chip` utility classes in `globals.css`.
