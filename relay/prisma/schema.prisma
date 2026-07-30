@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Teacher {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  fullName   String?  @map("full_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  googleConnection GoogleConnection?
+  profile          TeacherProfile?
+  classes          Class[]
+  absences         Absence[]
+
+  @@map("teachers")
+}
+
+model GoogleConnection {
+  id                       String   @id @default(uuid())
+  teacherId                String   @unique @map("teacher_id")
+  composioConnectedAccount String   @map("composio_connected_account_id")
+  status                   String   @default("active")
+  connectedAt              DateTime @default(now()) @map("connected_at")
+  lastSyncedAt             DateTime? @map("last_synced_at")
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("google_connections")
+}
+
+model Class {
+  id                      String   @id @default(uuid())
+  teacherId               String   @map("teacher_id")
+  googleCourseId          String   @unique @map("google_course_id")
+  className               String   @map("class")
+  section                 String
+  isActive                Boolean  @default(true) @map("is_active")
+  classroomRoutines       Json     @default("{}") @map("classroom_routines")
+  studentSupportProfiles  Json     @default("[]") @map("student_support_profiles")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  teacher    Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  relayPacks RelayPack[]
+
+  @@index([teacherId])
+  @@map("classes")
+}
+
+model TeacherProfile {
+  id                            String   @id @default(uuid())
+  teacherId                     String   @unique @map("teacher_id")
+  defaultContinuationPreference String?  @map("default_continuation_preference")
+  profileCompleted               Boolean  @default(false) @map("profile_completed")
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_profiles")
+}
+
+model Absence {
+  id           String   @id @default(uuid())
+  teacherId    String   @map("teacher_id")
+  absenceDate  DateTime @default(now()) @map("absence_date") @db.Date
+  status       String   @default("active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  teacher    Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  relayPacks RelayPack[]
+
+  @@unique([teacherId, absenceDate])
+  @@index([teacherId, absenceDate])
+  @@map("absences")
+}
+
+model RelayPack {
+  id            String    @id @default(uuid())
+  absenceId     String    @map("absence_id")
+  classId       String    @map("class_id")
+  secureToken   String    @unique @map("secure_token")
+  status        String    @default("draft")
+  relayPackJson Json      @map("relay_pack_json")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  absence   Absence     @relation(fields: [absenceId], references: [id], onDelete: Cascade)
+  class     Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  handovers Handover[]
+
+  @@unique([absenceId, classId])
+  @@index([secureToken])
+  @@map("relay_packs")
+}
+
+model Handover {
+  id                 String   @id @default(uuid())
+  relayPackId        String   @map("relay_pack_id")
+  audioUrl           String?  @map("audio_url")
+  transcript         String?
+  structuredSummary  Json     @default("{}") @map("structured_summary")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  relayPack RelayPack @relation(fields: [relayPackId], references: [id], onDelete: Cascade)
+
+  @@map("handovers")
+}
