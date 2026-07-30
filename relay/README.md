@@ -34,9 +34,9 @@ too late to get it out of there once they're already sick in bed.
 
 ## Demo
 
-- **Live app:** _\[add your Vercel URL here]_
-- **Demo video:** _\[add your video link here]_
-- **Screenshots:** _\[add 2-3 screenshots — dashboard, a generated Relay Pack, the substitute view]_
+
+- **Demo video:** : https://youtu.be/RA9TACechlM?si=3AbtNszFmAsyHZud
+
 
 ## ⚠️ Access note for judges
 
@@ -76,16 +76,6 @@ Three single-purpose AI steps, matching how a human would actually do this task:
 Substitute access is a bare secure token, not an account — `relay_packs.secure_token`
 is the only credential, and a pack is unreachable until its status is `approved`.
 
-## Challenges I ran into
-
-- **Avoiding confident-sounding wrong answers** — the first version let the LLM
-  generate practice questions even with zero real coursework behind them. They read
-  as perfectly reasonable questions about the right subject, on the wrong lesson.
-  Fixing this meant a hard rule: don't call the model at all if there's nothing to
-  ground it in, rather than trust a prompt instruction not to guess.
-- **Designing around "nothing persists until approved"** — reworking the generation
-  flow so a teacher can regenerate freely without ever writing an abandoned draft to
-  the database took a real architecture change, not just a UI tweak.
 
 ## What's next
 - Wire up Composio's `connected_account.expired` webhook for instant reconnect
