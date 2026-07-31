@@ -46,8 +46,8 @@ verification process — a multi-week process not practical to complete before t
 submission). In Testing mode, Google only allows sign-in from Google accounts
 explicitly added as test users.
 
-**If you'd like to sign in and try the live app yourself, email me your Google
-account address at _\[your email here]_ and I'll add you as a test user** — takes
+If you'd like to sign in and try the live app yourself, email me your Google
+account address at: huzaifarao550@gmail.com  , And I'll add you as a test user — takes
 under a minute on my end. Alternatively, the demo video walks through the full
 flow end-to-end if you'd rather not wait on that.
 
